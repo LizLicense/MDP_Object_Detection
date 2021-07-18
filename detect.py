@@ -1,14 +1,16 @@
 # Based on https://github.com/tensorflow/examples/blob/master/lite/examples/object_detection/raspberry_pi/README.md
 import re
-# import cv2
-# from tflite_runtime.interpreter import Interpreter
+import cv2
+from tflite_runtime.interpreter import Interpreter
 import numpy as np
 import time
-# from bullseyeTurn import*
+import os
+#from bullseyeTurn import*
 
 
 bullseye_id = 16
 initiat_id = 21
+probability = 0.9
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 
@@ -23,10 +25,16 @@ def load_labels(path='labels.txt'):
         labels[int(pair[0])] = pair[1].strip() 
       else:
         labels[row_number] = pair[0].strip()  
-               
-  # return labels
- # update_id(labels)
- # print(labels)
+  return labels
+
+def takePic(res_img):
+    timestamp = int(time.time() * 1e6)
+    filename = "{}.jpeg".format(timestamp)
+    filepath = os.path.join("/home/pi/Desktop/RPiObjectDetection/detectionPic", filename)
+    cv2.imwrite(filepath, res_img)
+    print("Image - {} written!".format(filename))
+    
+
 def update_id(id):
   if id == 0:
     id = 5
@@ -37,9 +45,9 @@ def update_id(id):
   elif id == 3:
     id = 6
   elif id == 4:
-    id = 5
+    id = 4
   elif id == 5:
-    id = 0
+    id = 11
   elif id == 6:
     id = 7
   elif id == 7:
@@ -62,30 +70,9 @@ def update_id(id):
     id = 15
   else:
     id =id
-
-def update_id1(dict):
-  dictCopy=dict.copy()
-  dict[0] = dictCopy[10]
-  dict[1] = dictCopy[1]
-  dict[2] = dictCopy[13]
-  dict[3] = dictCopy[7]
-  dict[4] = dictCopy[5]
-  dict[5] = dictCopy[0]
-  dict[6] = dictCopy[3]
-  dict[7] = dictCopy[6]
-  dict[8] = dictCopy[9]
-  dict[9] = dictCopy[12]
-  dict[10] = dictCopy[8]
-  dict[11] = dictCopy[5]
-  dict[12] = dictCopy[11]
-  dict[13] = dictCopy[2]
-  dict[14] = dictCopy[14]
-  dict[15] = dictCopy[15]
-  
-  return dict
+  return id
   
   
-
 def set_input_tensor(interpreter, image):
   """Sets the input tensor."""
   tensor_index = interpreter.get_input_details()[0]['index']
@@ -126,15 +113,16 @@ def detect_objects(interpreter, image, threshold):
 def bullseye():
     
     print('bullseyes, turn')
-    move_forwardLeft(13)
-    time.sleep(0.1)
-    move_forwardRight(13)
-    time.sleep(0.1)
-    move_backward(11)
-    time.sleep(0.1)
-    move_forwardRight(3)
-    time.sleep(0.1)
-    move_forward(2)
+    
+#    move_forwardLeft(13)
+#    time.sleep(0.1)
+#    move_forwardRight(13)
+#    time.sleep(0.1)
+#    move_backward(11)
+#    time.sleep(0.1)
+#    move_forwardRight(3)
+#    time.sleep(0.1)
+#    move_forward(2)
 
 
 #detect to get id
@@ -146,6 +134,7 @@ def detection():
     count=1
     proList = [initiat_id,0]
     cap = cv2.VideoCapture(0)
+          
     while count < 6: 
       # while cap.isOpened():
       cap.isOpened()
@@ -154,51 +143,70 @@ def detection():
       res = detect_objects(interpreter, img, 0.7)
       #print(res)
       #--res list
-
+              
       for result in res:
+
 #print(type(result) --> dict
           L = [int(result['class_id']),result['score']]
           if L[1]>=proList[1]:
-              del proList[:]
-              proList = L
-          proList[1] = update_id(proList[1])  
+            del proList[:]
+            proList = L
+          
+          
           ymin, xmin, ymax, xmax = result['bounding_box']
           xmin = int(max(1,xmin * CAMERA_WIDTH))
           xmax = int(min(CAMERA_WIDTH, xmax * CAMERA_WIDTH))
           ymin = int(max(1, ymin * CAMERA_HEIGHT))
           ymax = int(min(CAMERA_HEIGHT, ymax * CAMERA_HEIGHT))
+
           
           cv2.rectangle(frame,(xmin, ymin),(xmax, ymax),(255,0,0),3)
-          cv2.putText(frame,labels[int(result['class_id'])]+' P: '+ str(round(proList[1],2)),(xmin, min(ymax, CAMERA_HEIGHT-20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(255,255,255),2,cv2.LINE_AA) 
-          
+          if proList[1] > probability:
+              cv2.putText(frame,labels[int(result['class_id'])]+' P: '+ str(round(proList[1],2)),(xmin, min(ymax, CAMERA_HEIGHT-20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(255,255,255),2,cv2.LINE_AA) 
+              
       cv2.imshow('Pi Detect', frame)
       count = count + 1
       #print("result:", count, proList)
       if cv2.waitKey(10) & 0xFF ==ord('q'):
           cap.release()
           cv2.destroyAllWindows()
-    print("detection result final:", proList[0]+1, "Probability: ", proList[1]) 
+    proList[0] = update_id(proList[0])
+    takePic(frame)
+    #print("detection result final:", proList[0]+1, "Probability: ", proList[1]) 
     #bullseyeCheck(proList[0])   
-    return proList[0]+1
-    
+    return proList
+
+def test():
+    while True:
+        detection()    
 
 def main():
-    id=detection()
+    proLkist=[]
+    proList=detection()
+    id = proList[0]+1
+    pro = proList[1]
     
-    if id in range(0,bullseye_id):
-        print("id found, end.")
-        
-    elif id not in range(0,17):
-        print('no id found, continue detecting...')
-        main()
-        
-    elif id == bullseye_id:
-        bullseye()
-        main()
-        
+    if pro > probability:
+        if id == bullseye_id:
+            print("detection result final:", id, "Probability: ", pro)
+            bullseye()
+            main() 
+        elif id in range(0, bullseye_id):
+            print("detection result final:", id, "Probability: ", pro)
+            print("id found, end.")      
+        elif id not in range(0, bullseye_id + 1):
+            print('no id found, continue detecting...')
+            main()     
+   
+        else:
+            print('none of above')
     else:
-        print('none of above')
-    
+        print('probability too low, continue detecting...')
+        main()
+
+
+
+
     
 if __name__ == "__main__":
-    load_labels(path='labels.txt')
+    test()
