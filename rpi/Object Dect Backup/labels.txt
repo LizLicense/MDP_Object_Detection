@@ -1,0 +1,15 @@
+6_six
+2_downarrow
+14_Y
+7_seven
+5_go
+12_W
+8_eight
+4_leftarrow
+11_V
+9_nine
+1_uparrow
+13_X
+10_zero
+3_rightarrow
+15_Z
